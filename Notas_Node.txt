@@ -1,0 +1,1464 @@
+Capt 2 - Livro NodeJs
+Objetos globais
+
+buffer
+
+global - no navegador quando declaramos uma variavel no nivel mais alto da hierarquia de classes, ela é declarada no com
+escopo global. No Node não é assim. Ao declarar uma variável em um módulo não obtemos uma variável disponível 
+globalmente mas sim restrita ao modulo ou aplicação em que foi declarada.
+	console.log(global)
+Objetos e funções disponíeis globalmente serão exibidos no console.
+
+process
+
+O objeto process é essencial no ambiente Node, pois oferece informação sobre o ambiente de execução. Além disso, os
+processos de entrada e saída (I/O) ocorrem por meio do process, por ele também que podemos encerrar de forma apropriada
+uma aplicaçao e ate sinalizar quando o laço de eventos (event loop) do Node chegou ao fim de um ciclo.
+
+dica: no terminal use sempre aspas duplas haja visto que funcionam em qualquer ambiente.
+	ex. node -p "process.env"
+
+Fluxos padão são canais de comunicação pre-estabelecidos entre uma aplicação e seu ambiente. Consistem de uma entrada
+padrão (stdin), uma saida padrão (stdout) e uma saida de erros padrão (stderr). Em uma aplicação Node esses canais oferecem 
+comunicação direta entre a aplicaçao em Node e o terminal.
+O Node suporta canais com três funções de processo:
+process.stdin - fluxo de leitura
+process.stdout - fluxo de escrita
+process.stderr - fluxo de escrita para stderr
+
+Para usarmos stdin primeiro precismos definir o tipo de codificação usado no fluxo de dados (se não o fizer os dados serão
+empacotados em um tipo binário - octeto).
+
+	process.stdin.setEncoding('utf8') 
+
+Agora precisamos monitorar o evento readble que informa a existencia de um conjnto de dados pronto para ser lido. Usaremos 
+a funcao process.stdin.read() para ler esses dados. Caso os dados não sejam nulos iremos ecoa-los para fora do processo via
+process.stdout.write().
+
+process.stdin.on('readable', function(){
+	var input = process.stdin.read();
+	if (input !== null){
+		process.stdout.write(input);
+		
+		var comand = input.trim();
+		if (comand == 'exit'){
+			process.exit(0);
+		}
+	}
+})
+Para finalizar o programa seria preciso matar o processo com sinal apropriado ou pressionar CTRl + C, ao invés disso, 
+podemos encerrar a aplicação dentro dela própria usando process.exit(). Podemos até determinar se a aplicação encerrou
+com sucesso ou com falha.
+
+Buffer
+Fluxo de dados = o octeto é uma unidade de medida na computação, sendo composto por valores de 8 bits. Em um sistema
+que suporta bytes de 8 bits, um octeto e um byte são a mesma coisa. Um fluxo (stream) é apenas uma sequência de dados.
+Portanto, um arquivo binário é no fim das contas  uma sequência de octetos.
+Um buffer no Node é um bloco de dados binários brutos que foram alocados fora da pilha interna do V8. É gerenciado pela
+classe Buffer. Uma vez alocado, o buffer não pode ser redimensionado.
+Podemos criar um buffer assim:
+	let buf = new Buffer(24);
+O buffer não é inicializado quando é criado, assim para evitar sujeira é uma boa idéia preencher o buffer imediatamente
+após cria-lo:
+	let buf = new Buffer(24);
+	buf.fill(0);
+Metodos do Buffer
+	Buffer.from(var1) - retorna um buffer com uma cópia de um array passado (var1)
+	Buffer.alloc(var2) - cria um buffer preenchido de um tamanho determinado
+Buffers podem ser convertidos em objetos Json e em Strings, veja o exemplo:
+	
+  let buf = new Buffer("Meu exemplo");
+	console.log('buffer = ' ); console.log(buf); // imprime os bits
+
+	let json = JSON.stringify(buf);
+	console.log('json = ' ); console.log(json); // converte em objeto Json - os dados exibidos estao em sequencia de octetos(ilegivel)
+
+	let buf2 = new Buffer(JSON.parse(json).data); // converte de json para buffer
+	console.log('buf2 = ');
+	console.log(buf2.toString());  // converte de buffer para string
+
+A função toString() converte a string para UTF-8 por default, mas se quisessemos outros tipos de string bastaria passar a 
+codificação correta:
+	ex. buf2.toString('ascii');
+
+StringDecoder
+
+Esse objeto decodifica valores de buffer para strings em UTF-8, a diferença para toString reside no fato de que se o toString
+receber uma sequencia incompleta de caracteres UTF-8 retornará lixo incompreensivel, ja a StringDecoder prencherá a 
+sequência fragmentada até que esteja completa e devolve o resultado. Além disso se os dados a serem processados vierem
+de um fluxo de qual recebemos blocos em vez de um fluxo continuo é obrigatorio usar StringDecoder.
+Ex.
+	let StringDecoder = require('string_decoder').StringDecoder;
+	let decoder = new StringDecoder('utf-8');
+
+	let buf3 = new Buffer('texto lindo');
+	console.log(decoder.write(buf3));
+
+No exemplo abaixo escrevemos quatro inteiros de 8 bits sem sinal em um buffer e depois os lê e exibe no console.
+	var buf4 = new Buffer(4);
+	buf4.writeUInt8(0x63,0);   // 0 (2 argumento) é a posição - similar a buf4[0] = 0x63
+	buf4.writeUInt8(0x61,1);  // 0x61 - hexa
+	buf4.writeUInt8(0x74,2);
+	buf4.writeUInt8(0x73,3);
+	console.log(buf4.toString());
+  
+  Nota: >>> o prefixo 0x identifica o numero que segue como uma constante hexadecimal, se assim não fosse o compilador
+            poderia entendê-lo como decimal, então:
+            Para que usar um prefixo? Para diferenciar de um decimal, pois é perfeitamente normal um hexa sem letra
+            nenhuma. 0x99, por exemplo, é 153 em decimal, mas se você escrevesse int x = 99, o compilador não teria
+            como adivinhar a sua intenção. o 0x99 já deixa explícito que é hexa.
+
+Node suporta leitura e escrita de inteiros de 8, 16 e 32 bits, com ou sem sinal, bem como numeros com ponto flutuante de
+precisão simples (float) ou dupla (double). Para todos os tipos que não sejam inteiros de 8 bits, podemos escolher ainda se
+queremos o formato little-endian ou big-endian de ordenação de bytes.
+Ordenação de bytes em uma palavra de dados = esse formato determina como um valor de 2 ou mais bytes é armazenado.
+O formato escolhido determina se o byte mais significativo é armazenado na posição mais baixa da memória (big-endian) ou
+se o o byte menos significativo é armazenado na posição mais baixa de memória (little-endian).
+
+Além de ler e escrever em uma posiçào (offset) especifica dentro de um buffer, podemos criar um novo buffer que consiste
+em uma seção do antigo, usando o buffer.slice(). Atenção >> modificar o conteúdo do novo buffer também modifica o 
+conteúdo do antigo. Ex.
+
+  var buf1 = new Buffer ('this is the way we buid our buffer');
+  var tam = buf1.length;
+  // cria um buffer com a fatia do antigo
+  var buf2 = buf1.slice(19,tam);
+  console.log('buf1');
+  console.log(buf1);
+  console.log('mostra o buf2 apos o slice do buf1');
+  console.log(buf2.toString());
+
+  //modifca o segundo buffer
+  buf2.fill('*',0,5);
+  console.log('buffer 2 alterado');
+  console.log(buf2.toString());
+
+  console.log('impacto no 1 buffer');
+  console.log(buf1.toString());
+
+>>>> se precisar testar a equivalência de dois buffers use a função buffer.equals - ex if (buf1.equals(buf2))
+
+Podemos copiar os bytes de um buffer para outro usando buffer.copy(buffer destino). Podemos copiar todos 
+ou parte dos bytes usando parametros opcionais. Se o segundo buffer não for grande o bastante para 
+armazenar todo o conteúdo, este será truncado e teremos apenas a porção de dados que couberem no buffer 
+de destino.
+
+Para comparar buffers usamos buffer.compare() que devolve um valor indicando se o buffer comparado vem 
+antes do outro, em ordem alfabética. Se vier antes, o valor devolvido é -1, se vier depois o valor é 1, 
+se os dois forem iguais, tiverem bytes equivalentes o valor devolvido é 0. Ex.
+
+  var buf1 = new Buffer('1 is number one');
+  var buf2 = new Buffer('2 is number two');
+  var buf3 = buf1.copy(buf3);
+
+  console.log(buf1.compare(buf2)); // -1
+  console.log(buf2.compare(buf1)); // 1
+  console.log(buf1.compare(buf3)); // 0
+
+Fila de Eventos (pag 54)
+
+O Js é single-threaded, sincrono, executa linha-a-linha, o node herda esse comportamento do Js. Para 
+evitar que a aplicaçao fique bloqueada esperando a ocorrência de algo (ex, abertura de um arquivo), a 
+solução foi o event loop, ou laço de eventos.
+
+Quando um processo que consome tempo é invocado, a aplicação não espera que ele termine. Em vez disso o 
+processo sinaliza quando já tiver terminado pela emissão de um sinal de evento. Esse evento é adicionado 
+a fila de eventos ou event loop. Qualquer funcionalidade dependente desse evento registra seu interesse 
+nele e quando o evento é retirado da fila e processado a funcionalidade dependente é chamada e os dados 
+relacionados ao evento são passados a ela.
+Ex.
+  var http = require('http');
+  var server  = http.createServer();                  // funcao on = permite se inscrever nos eventos 
+  server.on('request', function (request, response){  // evento request = emitido sempre que uma req
+    console.log('request event');                     //  web chega vinda de um cliente
+    response.writeHead(200, {'Content-Type': 'text-plain'});
+    response.end('hello world \n');
+  });
+  server.on('connection', function(){  // evento connection = emitido cada vez que o cliente
+    console.log('connection event');   //  se conecta a aplicação
+  });
+  server.listen(8124, function (){
+    console.log('listen event');
+  });
+  console.log('server running port 8124');
+
+O Node processa todos os eventos da fila em ordem. Quando chegar ao evento em que vocë esta interessado,
+chama a função de callback informada e passa a ela qualquer informação associada ao evento.
+
+Padrão de Código de uma callback (pag 59) 
+
+>> garanta que o ultimo argumento seja uma função de callback
+>> crie um objeto error do Node e se o erro ocorrer devolva esse objeto como primeiro argumento na função de callback
+>> se não ocorrer errros chame a função de callback e atribua o valor null ao argumento de erro e passe ao callback 
+    quaisquer dados relevantes
+>> a chamada da função de callback deve ser feita de dentro da função process.nextTick() para garantir que não haja bloqeio,
+    isto é, que o processamento seja assincrono.
+
+EventEmitter
+
+Permite tratar eventos assincronos no Node. Para demonstrar sua funcionalidade principal, veja o exemplo
+abaixo:
+
+  var eventEmitter = require('events').EventEmitter;
+  var count = 0;
+  var em = new eventEmitter();
+  setInterval(function(){
+    em.emit('timed', count++);        // chamou o evento timed passando count++ como parametro
+    if (count >= 3) process.exit(0);
+  }, 3000);
+  
+  em.on('timed', function(data){    // se inscreve no evento timed, recebendo o count
+    console.log('timed ' + data);
+  });
+
+Ao invés de usarmos instâncias do EventEmitter precisamos da funcionalidade do EventEmitter nos nossos 
+objetos preexistentes, assim como fazem o http.Server e outras classes do Node. A funcionalidade do 
+EventEmitter é herdada, podemos usar o objeto util do Node para ativar essa herança. Veja o exemplo abaixo:
+
+  "use strict";
+  var util = require('util');
+  var eventEmitter = require('events').EventEmitter;
+  var fs = require('fs');
+
+  function InputChecker (name, file){
+    this.name = name;
+    this.writeStream = fs.createWriteStream('./' + file + '.txt', {
+      'flags' : 'a',
+      'encoding' : 'utf8',
+      'mode': 0o666
+    });
+  }
+
+  util.inherits(InputChecker, eventEmitter);
+
+  InputChecker.prototype.check = function check (input){
+    // elimina excessos espaços em branco
+    let command = input.trim().substr(0,3);
+    if (command == 'wr:') {
+      this.emit('write', input.substr(3,input.lenght));
+    } else if (command == 'en:') {
+      this.emit('end');
+    } else {
+      this.emit('echo', input);
+    }
+  };
+
+  let ic = new InputChecker ('Shelby','output');
+  ic.on('write', function(data){
+    this.writeStream.write(data, 'utf8');
+  });
+
+  ic.on('echo', function(data){
+    process.stdout.write(ic.name + ' wrote ' + data);
+  });
+
+  ic.on('end', function(){
+    process.exit(0);
+  });
+
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('readable', function(){
+    let input = process.stdin.read();
+    if (input !== null){
+      ic.check(input);
+    }
+  });
+
+Quando temos mais 10 detectores (listeners) para um mesmo evento recebemos um alerta por defult.
+Para aumentar o numero de listeners use setMaxListeners passando como parametro o novo número máximo.
+O valor zero significa que não há limite. E para remover um listener:
+  ic.on ('echo', callback);
+  ic.removeListener('echo',callback);
+
+>>> Sugestão: Pag 65 - pesquisar o EventEmiiter.once ()
+
+Callbacks aninhados e tratamento de execução (pag 69)
+
+Exemplo de programação sequencial usando as versões sincronas dos metodos do modulo FileSystem 
+para abrir um arqivo e obter seus dados, modificando-os a fim de substituir todas as ocorrências 
+de apple por orange e gravar s atring resultante em um novo arquivo.
+Ex.
+
+var fs = require('fs');
+try{
+  var data = fs.readFileSync ('./apples.txt', 'utf8');
+  console.log(data);
+  var adjdata = data.replace(/[A/a]pple/g, 'orange ');
+  fs.writeFileSync('./oranges.txt', adjdata);
+} catch (err){
+  console.error(err);
+}
+Note que as chamadas de função estão envoltas no bloco try-catch para tratarmos os erros de forma 
+mais elegante.
+
+Agora vamos escrever o mesmo codigo com as versões assincronas dos metodos FileSystem. Primeiro 
+temos que ter em mente que as funções assincronas não bloqueiam o processamento quando chamadas, 
+o que significa que não podemos garantir a sequência correta de sua execução já que são chamadas 
+independente umas da outras. A única maneira de assegurar que cada função seja chamada na 
+sequência correta é implementado-as em callbacks aninhados (mais para frente veremos uma solução 
+melhor).
+Note que não podemos usar try-catch porque ele seria processado antes que qualquer função 
+assincrona fosse chamada.
+No exemplo abaixo o arquivo de entrada é aberto e lido. Somente quando as duas ações forem 
+finalizadas, a função de callback é chamada. Se não houver erros os dados são processados e o 
+metodo assincrono writeFIle é chamado, quando ele terminar a execução o seu callback que tem 
+apenas um argumento é chamado.
+
+var fs = require('fs');
+  fs.readFile('./apples.txt', 'utf8', function(err, data){  
+    if (err) {
+      console.log(err);
+    } else {
+      var adjdata = data.replace(/[A/a]pple/g, 'orange ');
+      fs.writeFileSync('./oranges.txt', adjdata, function(erro){
+        if (erro) console.log(erro);
+      });
+    }
+  });
+  
+Pag 95 npm
+npm init --yes >> cria o arquivo package.json
+npm install modulo ou npm install modulo@versao
+npm install modulo --save-dev   >>> nome e versao gravados no campo devDependencies do arquivo 
+                                    package.json 
+buscar modulos para aplicação = site npm 
+
+Criando um modulo 
+
+Como transformar um trecho de código em um módulo para ser usado no Node ?
+
+function concatArray(str, array){
+  return array.map(function(el){
+    return str + ' ' + element;
+  });
+}
+
+Para converter a biblioteca Js de forma que o Node pode usá-lo, é preciso exportar todas as 
+funções que devam ser expostas, para isso usamos o objeto exports, como mostrado abaixo:
+
+exports.concatArray = function (str, array){
+  return array.map(function(el){
+    return str + ' ' + element;
+  });
+};
+
+Para usar a função escrita acima em Node temos que importa-la:
+  var newArray = require('./arrayFunctions.js');
+  console.log(newArray.concatArray('oi',['teste1', 'teste2']));
+
+Lembrando que uma aplicação Node precisa de um ponto de entrada, que pode ser feita de duas formas:
+1 - informar dentro do package.json através das propriedades:
+  {
+    "name": "meuApp",
+    "main": "./modulos/meuapp.js"
+  }
+  name = indica o nome do modulo.
+  main = ponto de entrada do modulo.
+
+2 - ou incluir um arquivo que pode ter o nome de index.js ou index.node e esse arquivo funcionara 
+como ponto de entrada do módulo.
+
+ASYNC
+
+async.parallel - chama todas as funcoes assincronas de uma so vez e quando todas tiverem 
+terminado o que tinham para fazer, chama o callback final, que é opcional.
+Os resultados são devolvidos como um array de objetos, com cada resultado associado a cada uma 
+das propriedades. Ex. (arquivo async_paral.js)
+
+async = require("async");
+fs = require("fs");
+var files = ["./buffer_teste.js", "./a1.js", "./Notas_Node.txt"];
+
+async.parallel(
+  {
+    data1: function(cb) {
+      fs.readFile(files[0], "utf8", function(err, data) {
+        return cb(err, data);
+      });
+    },
+    data2: function(cb) {
+      fs.readFile(files[1], "utf8", function(err, data) {
+        return cb(err, data);
+      });
+    },
+    data3: function(cb) {
+      fs.readFile(files[2], "utf8", function(err, data) {
+        return cb(err, data);
+      });
+    }
+  },
+  function(err, result) {            // cb referebcia essa funcao de callback
+    if (err) {
+      console.error(err.message);
+    } else {
+      console.log(result.data1);
+    }
+  }
+);
+
+*******************************************************************************************
+
+Capitulo 5 - Servidor Web 
+
+querystring = seu proposito é preparar e processar strings de query, ou seja, dados enviados 
+na própria url após o caracter ?. 
+Quando recebemos um string de query podemos converte-lo em um objeto atraves do comando:
+querystring.parse() - ex:
+url = somedomain.com/?value1=valueone&value1=valueoneb&value2=valuetwo
+A função querystring.parse() analisa a string de queyr e devolve o seguinte objeto JSON:
+{
+  value1: ['valueone','valueoneb'],
+  value2: 'valuetwo'
+}
+
+Agora quando precisamos enviar uma string de query usamos querystring.stringify() passando o 
+objeto a ser codificado e obteremos uma string de query devidamente formatada pronta para ser 
+transmitida em um URL. 
+
+Exemplo de um servidor que escuta e responde um post (para testar rode primeiro o servidor em 
+um terminal, em seguida rode o cliente em outro terminal)
+
+var http = require("http");
+var querystring = require("querystring");
+
+var server = http.createServer().listen(8124);
+
+server.on("request", function(req, res) {
+
+  if (req.method == "POST") {
+
+    var body = "";
+    /* monitora a chegada dos dados e adiciona pacotes de dados (data chunk)
+       ao final do corpo da pagina */
+
+    req.on("data", function(data) {
+      body += data;
+    });
+
+    // monitora o termino do envio dos dados
+    req.on("end", function() {
+      var post = querystring.parse(body);
+      console.log("post recebido");
+      console.log(post);
+      response.writeHead(200, { "Content-Type": "text/plain" });
+      response.end("Retransmitindo sua msg >>>> " + post);
+    });
+  }
+});
+console.log("server listening 8124");
+
+*********
+
+Exemplo de um cliente fazendo requisição post
+
+var http = require("http");
+var querystring = require("querystring");
+
+var postdata = querystring.stringify({
+  msg: "Dados do cliente: Galo !!"
+});
+
+var options = {
+  hostname: "localhost",
+  port: 8124,
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded",
+    "Content-Lenght": postdata.length
+  }
+};
+
+var req = http.request(options, function(res) {
+  console.log("STATUS = " + res.statusCode);
+  console.log("HEADERS = " + JSON.stringify(res.headers));
+  res.setEncoding("utf8");
+
+  // monitora a resposta
+  res.on("data", function(chunk) {
+    console.log("Resposta do Server: " + chunk);
+  });
+
+  res.on("end", function() {
+    console.log("Dados da resposta finalizou ....");
+  });
+});
+
+req.on("error", function(e) {
+  console.log("Erro no envio dos dados ao servidor");
+  console.log(e.message);
+});
+
+req.write(postdata);
+req.end();
+
+------------------------
+
+Sobre a leitura de arquivo, poderiamos usar fs.readFile() mas ele lê o arquivo por completo e o 
+guarda na memoria antes de disponibiliza-lo, como os documetos da web costumam ser grandes e 
+podem haver muitas solicitações simultâneas para o mesmo documento optamos por criar um fluxo de 
+leitura com o metodo fs.createReadStream. Usamos o metodo pipe para redirecionar o conteudo do 
+arquivo diretramente para o objeto de resposta HTTP. E como stream manda manda um sinal de 
+encerramento quando não há mais dados a transmitir, não precisamos chamar o metodo end. 
+
+O fluxo de leitura tem dois eventos de interesse: open e error. O open é emitido quando o fluxo 
+está pronto para leitura e error é emitido quando um erro acontece 
+
+Dica: variavel predefinida __dirname = especifica a pasta atual da aplicação - 
+
+Dica de módulo: mime - npm install mime --save-dev
+O modulo mime devolve o tipo MIME apropriado de acordo com o nome do arquivo (com ou sem caminho) 
+e pode ainda devolver a extensão do arquivo se informarmos o tipo de conteudo. Ex.
+
+  var mime = require ("mime");
+  var type = mime.lookup(path);  // var path com caminho e nome do arquivo
+  console.log(type);
+  res.setHeader("Content-Type",type);
+
+/*
+ex arquivo: node server_web
+para testar rode esse arquivo: node server_web e no navegador: http://localhost:8124/public.html
+*/
+var http = require("http");
+var fs = require("fs");
+var base = "./home/examples/";
+const TYPEHEADER = "Content-Type";
+const HEADER = "text/html";
+
+http
+  .createServer(function(req, res) {
+    var path = base + req.url;
+    console.log("path = " + path);
+
+    fs.stat(path, function(err, stat) {
+      if (err) {
+        console.log(err);
+        res.writeHead(404);
+        res.write("Recurso nao encontrado");
+        res.end();
+      } else {
+        res.setHeader(TYPEHEADER, HEADER);
+        // cria um fluxo de leitura e redireciona para o response - ideal para arquivos grandes
+        var file = fs.createReadStream(path);
+
+        file.on("open", function() {
+          res.statusCode = 200;
+          file.pipe(res);
+        });
+
+        file.on("error", function(err) {
+          console.log(err);
+          res.writeHead(403);
+          res.write("problema ao acessar o arquivo - permissions ??");
+          res.end();
+        });
+      }
+    });
+  })
+  .listen(8124);
+
+console.log("server running 8124 port");
+*******************************************************************************
+
+Capt 6 - Sistema de arquivos 
+
+Modulo OS = modulo informativo, permite verificar recusos disponiveis na maquina, como memoria 
+livre (freemem), total de memoria (totalmem), descobrir o caracter de fim de linha suportado
+pelo SO (EOL) e outros.
+
+Fluxos
+
+Os fluxos (stream) aparecem em todos os mdoulos nativos do Node, e são usados em funcionalidades 
+de sistemas de arquivos. Há algumas funcionalidades basicas que são comuns a todos os streams:
+- podemos alterar a codificação do fluxo com setEncoding;
+- podemos verificar se o fluxo é de leitura, de escrita ou ambos;
+- podemos capturar eventos de fluxo, como data received (dados recebidos) ou connection closed (
+  conexão encerrada) associando funções de callback a cada evento.
+- podemos pausar e retornar o fluxo;
+- podemos redirecionar dados de um fluxo de leitura para um fluxo de escrita, em um comportamento 
+  semelhante ao pipe do Unix. O pipe | extrai os dados do arquivo (ou um fluxo) e os redireciona 
+  para o objeto http.ServerResponse. Ex.
+
+    var gzip = zlib.createGzip();
+    vas fs = require(fs);
+    var inp = fs.createReadStream('input.txt');
+    var out = fs.createWriteStream('input.txt.gz');
+
+  inp.pipe(gzip).pipe(out);
+  No exemplo acima o conteudo de um é encaminhado ao outro, mas no meio do caminho os dados 
+  passam por uma rotina de compactação (gzip), o que o torna um fluxo de transformação.
+
+Cada uma das funções do modulo FS vem em duas versoes: sincrona e assincrona. A função assincrona 
+recebe um callback de tratamento de erros como ultimo argumento, enquanto as funcoes sincronas 
+geram um erro imediatamente quando ocorre uma falha. Para esses casos podemos usar try-catch, e nas 
+assincronas podemos acessar o erro pela funcao de callback.
+
+Classe fs.Stats 
+Quando usamos as funcoes fs.stat(), fs.lstat e fs.fstat elas devolvem um objeto fs.Stats que pode 
+ser usado para verificar se um arquivo ou uma pasta existe, e informações sobre a pasta ou o 
+arquivo. O item mode contem as permissoes do objeto. Use um modulo auxiliar para interpretar os 
+dados do mode. Ex.
+
+var fs = require("fs");
+var Mode = require("stat-mode"); // tem que ser instalado com npm install stat-mode
+fs.stat("./hash_senha.js", function(err, stats) {
+  if (err) return console.log(err);
+
+  var mode = new Mode(stats);
+  console.log(mode.toString());
+  console.log("Group execute: " + mode.group.execute);
+  console.log("Others write: " + mode.others.write);
+  console.log("Owner read: " + mode.owner.read);
+});
+
+Modulo fs.Watcher
+
+Não é incomum uma aplicaçao ficar escutando um arquivo ou uma pasta e quando um deles é alterado 
+uma ação é disparada. A classe que monitora o sistema de arquivo é fs.Watcher, que é a interface 
+que lida com isso no Node, mas ela tem inconsistências e por isso não é útil.
+Temos um modulo de terceiros que faz isso muito bem, o Chokidar (usado no Gulp). Instale-o:
+  npm i chokidar 
+
+O exemplo abaixo monitorara a pasta data, verificando mudanças, incluindo alteracoes dentro dos 
+arquivos. O monitoramento é recursivo e sempre inclui novas pastas contidas dentro da pasta sendo
+monitorada e qualquer novo arquivo que apareça. O evento bruto raw reune todos os outros eventos, e 
+estes monitoram eventos de nivel mais alto.
+Se criarmos ou apagarmos arquivos e pastas dentro da pasta monitorada, seremos avisados no console. 
+Se o arquivo mudar de tamanho, também. As funções unlink e unlinkDir refletem o fato de que o 
+apagamento aparente do arquivo signiifca que na verdade ele não esta mais vinculado a pasta atual, 
+mas existe no disco e tem vinculo em outros lugares. Se por outro lado esse for o unico vinculo 
+fisico e for apagado, o evento capturado por unlink ou unlinkDir indica que o arquivo fisico tb 
+foi apagado do disco.
+
+Ex. monitor.js
+var chokidar = require("chokidar"); // npm i chokidar
+var watcher = chokidar.watch("./data", {
+  ignored: /[\/\\]\./,
+  persistent: true
+});
+
+var log = console.log.bind(console);
+
+watcher
+  .on("add", function(path) {
+    log("File", path, "adicionado");
+  })
+  .on("unlink", function(path) {
+    log("File", path, "removido");
+  })
+  .on("addDir", function(path) {
+    log("Diretorio", path, "adicionado");
+  })
+  .on("inlinkDir", function(path) {
+    log("Diretorio", path, "removido");
+  })
+  .on("error", function(error) {
+    log("Error aconteceu", error);
+  })
+  .on("ready", function() {
+    log("Scan complete");
+  })
+  .on("raw", function(event, path, details) {
+    log("Event Path Details:", event, path, details);
+  });
+
+watcher.on("change", function(path, stats) {
+  if (stats) log("File", path, "changed size to", stats.size);
+});
+-------------------------------------------------------------------
+
+Modulo path
+
+Facilita a transformação e extração de dados pelos caminhos do sistema de arquivos. Exs:
+path.extname(file) = obtem a extensao do arquivo
+path.basename(file) = nome do arquivo 
+path.normalize(url) = normaliza a url de acordo com o ambiente 
+
+Modulo readline
+
+Inicia uma thread de comunicação sem fim. Uma vez incluido esse modulo o programa Node não é 
+encerrado até que fechemos a interface.
+
+Ex: arquivo readline.js 
+var readline = require("readline");
+
+//cria a interface
+var rl = readline.createInterface(process.stdin, process.stdout);
+
+rl.question("e agora?", function(resp) {
+  console.log("Resposta = " + resp);
+  rl.setPrompt("#");
+  rl.prompt();
+});
+
+rl.on("close", function() {
+  closeInterface();
+});
+
+function closeInterface() {
+  rl.close();
+  console.log("saindo do console");
+}
+
+rl.on("line", function(cmd) {
+  if (cmd.trim() == "sai") {
+    closeInterface();
+    return;
+  }
+
+  console.log("repeting: " + cmd);
+  rl.prompt();
+});
+
+*******************************************************************************
+Capt 7 - Redes e sockets
+
+socket = terminal de comunicação 
+scoket de rede = terminal de comunicação entre 2 computadores diferentes ligados em rede 
+
+Os dados fluem entre os sockets por stream. Os dados podem ser enviados em formato binário em 
+um buffer ou formato Unicode em String - ambos são transmitidos como pacotes - os dados são 
+divididos em pedacinhos pequenos, de igual tamanho - tem um tipo especial de pacote chamado 
+pacote de término (FIN) que é enviado ao socket para sinalizar o término da transmissão (isso 
+para pacotes TCP - datagramas UDP não tem sinalização com flags SYN, ACK, RST, URG, FIN).
+
+TCP 
+
+O TCP oferece uma plataforma de comunicação, o modulo permite transmitir dados entre os sockets 
+do cliente e do servidor de forma confiável. O TCP propicia a infra sobre a qual a camada da 
+aplicação reside(ex é o HTTP).
+Podemos criar um servidor e um cliente TCP da mesma forma que fizemos no exemplo acima com o 
+modulo HTTP. A diferença é que ao criar o servidor TCP o unico argumento de sua função de callback 
+é uma instância de um socket que pode tanto receber quanto enviar dados.
+
+No exemplo abaixo criamos um servidor TCP que passa a monitorar dois eventos: o momento em que um 
+bloco de dados é recebido e o momento que o cliente fecha a conexão. O servidor mostra os dados 
+no console e devolve esses mesmos dados para o cliente.
+
+Ex. arquivo servidor_tcp.js e arquivo client_tcp.js
+
+// servidor_tcp.js
+var net = require("net");
+const PORT = 8124;
+
+var server = net
+  .createServer(con => {
+    console.log("server conectado");
+
+    con.on("data", data => {
+      console.log(
+        "server = " + data + "from " + con.remoteAddress + " " + con.remotePort
+      );
+      con.write("Repeat >>>> " + data);
+    });
+
+    con.on("close", () => {
+      console.log("server = client closed connection !!!!!");
+    });
+  })
+  .listen(PORT);
+
+server.on("listening", () => console.log("server listening port 8124"));
+
+server.on("error", err => {
+  if (err.code == "EADDRINUSE") {
+    console.warn("port in use .... retrying ......");
+    setTimeout(() => {
+      server.close();
+      server.listen(PORT);
+    }, 1000);
+  } else console.log(err);
+});
+
+*****
+Note que o process.stdin.on   ==> monitora a entrada de dados via terminal e logo apos o enter 
+encaminha o input para o socket.
+O metodo write do socket é usado para transmitir os dados. A aplicação monitora dois eventos: data, 
+para dados recebidos e close caso o servidor feche a conexão.
+
+// client_tcp.js 
+
+var net = require("net");
+var client = new net.Socket();
+
+client.setEncoding = "UTF8";
+
+// conecta ao servidor
+
+client.connect(
+  "8124",
+  "localhost",
+  () => {
+    console.log("client connected server");
+    client.write("Who needs a browser to communicate?");
+  }
+);
+
+client.on("data", data => {
+  console.log("client = resposta do servidor");
+  console.log(data.toString());
+});
+
+client.on("close", () => {
+  console.log("client = server closed connection");
+});
+
+process.stdin.on("data", data => client.write(data));
+
+********************************************************************************************
+Sockets com datagramas UDP 
+
+O TCP precisa de uma conexão dedicada entre os terminais de comunicação. O UDP não é orientado 
+a conexão, o que significa que não há garantias de que os dois terminais realmente conversrão 
+entre si. Por isso o UDP é menos confiável e robusto que o TCP, mas mais rápido, por isso é 
+indicado em ambientes de respostas rápidas ou tempo real como como a telefonia IP.
+
+O modulo para trabalhar com  UDP é o dgram e as mensagens são sempre enviadas em buffer, jamais em
+string. Ex. client_udp.js server_udp.js 
+
+// client_udp.js 
+var dgram = require("dgram");
+var client = dgram.createSocket("udp4");
+
+process.stdin.on("data", data => {
+  client.send(data, 0, data.length, 8124, "localhost", function(err, bytes) {
+    if (err) console.log("error: " + err);
+    else console.log("sucesso ....");
+  });
+});
+
+*******
+Nota: a aplicação abaixo cria um socket, associa a uma porta especifica (bind), caso contrario, 
+tentaria escutar o trafego de todas as portas e monitora os eventos message.
+
+// server_udp.js
+var dgram = require("dgram");
+
+var server = dgram.createSocket("udp4");
+
+server.on("message", function(msg, info) {
+  console.log("Message: " + msg + " from " + info.address + ":" + info.port);
+});
+
+server.bind(8124);
+
+Note que não foi preciso chamar o metodo close pois nem no cliente nem no servidor, já que não 
+há conexão sendo administrada entre o cliente e o servidor, so há sockets capazes de receber e 
+transmitir dados.
+
+************************************************************************************************
+
+Modulo Crypto
+
+Serve para criptografar os dados, é uma interface para a funcionalidade OpenSSl.
+No exemplo abaixo criaremos um hash de senha antes armazena-la em um banco de dados. Usaremos 
+hash pelo algoritmo sha1, codificar a senha com o hash e extrair o digest dos dados para guarda-lo 
+no BD:
+var hashpassword = crypto.createHash('sha1')
+                          .update(password)
+                          .digest('hex');
+A codificação do digest está em hexa, por default é binária.
+Para aumentar a segurança é comum usar um salt (tempero), que é um valor gerado pelo sistema que é 
+concatenado com a senha antes dela ser criptografada. Se usarmos um salt para todas as senhas, ela 
+pode ficar em um arquivo no servidor, se quiser um salt para cada senha grave o salt no BD.
+No exemplo abaixo usaremos o my-sql então instale-o: npm install node-mysql 
+
+Crie o BD NodeDatabase e a tabela abaixo:
+ CREATE TABLE user (userid INT NOT NULL AUTO INCREMENT, PRIMARY KEY (userid)),
+  username VARCHAR(400) NOT NULL, passwordhash VARCHAR(400) NOT NULL, salt DOUBLE NOT NULL);
+Usei o arquivo: create_table.js 
+
+Ex. hash_senha.js 
+// para executar esse pgm node hash_senha param1 param2
+
+var mysql = require("mysql");
+var crypto = require("crypto");
+
+var con = mysql.createConnection({
+  host: "localhost",
+  user: "root",
+  password: ""
+});
+
+con.connect();
+
+con.query("use nodedb");
+
+var values_var = {};
+values_var.username = process.argv[2];
+var password = process.argv[3];
+values_var.salt = Math.round(Date.now() * Math.random()) + "";
+
+values_var.passwordhash = crypto
+  .createHash("sha512")
+  .update(values_var.salt + password, "utf8")
+  .digest("hex");
+
+con.query("insert into user1 set ?", values_var, function(err, result) {
+  if (err) console.log(err);
+  else {
+    console.log("incluido");
+    con.end();
+  }
+});
+************
+// programa que recupera o hash e o salt para refazer a senha e verifica a senha
+// informada com a cadastrada pelo programa anterior.
+// arquivo: hash_senha_recupera.js 
+
+var mysql = require("mysql");
+var crypto = require("crypto");
+var hash = "";
+var values_var = {};
+values_var.username = process.argv[2];
+var password = process.argv[3];
+var con = mysql.createConnection({
+  host: "localhost",
+  user: "root",
+  password: ""
+});
+
+con.connect();
+
+con.query("use nodedb");
+
+con.query(
+  "select passwordhash, salt from user1 where username = ?",
+  values_var.username,
+  function(err, result) {
+    if (err) return console.error(err);
+
+    hash = crypto
+      .createHash("sha512")
+      .update(result[0].salt + password, "utf8")
+      .digest("hex");
+
+    if (hash === result[0].passwordhash) {
+      console.log("cool......password OK");
+    } else {
+      console.log("errado !!!!!!!!!!");
+    }
+    con.end();
+  }
+);
+********************************************************************************************
+
+Capitulo 8 - Processos Filho
+
+
+
+
+
+
+
+********************************************************************************************
+
+Capitulo 9 - Node e Ecma 6
+
+Mode strict 
+ativado atraves "use strict" 
+  - não permite notação octal - ex. 0666 - o zero tem que ser substituido 0o - ex. 0o666
+  - necessário se quiser algumas extensões do Js como as classes e o let.
+
+  https://esdiscuss.org/topic/octal-literals-have-their-uses-you-unix-haters-skip-this-one 
+
+  let - define variaveis em nivel de bloco - necessario use strict - alem de confinar o escopo da 
+  variavel ao bloco o let difere do var na elevação do escopo. Variaveis declaradas com var sao 
+  elevadas (hoisted) ao inicio do escopo de execução antes que qualquer instrução seja executada.
+  O exemplo abaixo resulta em undefined mas não gera erro de execução.
+
+    console.log(test);
+    var test;
+  
+  Ja usando o let recebemos erro Reference Error:
+
+    "use strict";
+    console.log(test);
+    let test;
+  
+  const
+  
+  O escopo do const é restrito ao bloco e não requer modo strict.
+
+  Declara um valor de referência apenas de leitura. O valor é uma primitiva, portanto imutável, se 
+  valor for um objeto, não se pode inicializar um novo objeto, mas pode alterar suas propriedades.
+  Em outras palavras, const é uma referência a um valor. Se atribuirmos um objeto ou array a uma 
+  constante definida por const, os membros dentro do objeto ou array podem ser alterados, mas não 
+  é possível atribuir outro objeto ou array a constante.
+  Se a imutabilidade for importante para seu código e a constante const receber um objeto podemos 
+  empregar o metodo object.freezepara obter algum tipo de imutabilidade rasa.
+
+  Funções arrow
+
+  Não são apenas simplificações de sintaxe, também redefinem a palavra-chave this. Em Js cada 
+  função define o seu proprio valor de this. Ex.
+
+  function NewObj(name){
+    this.name = name;
+  }
+
+  NewObj.prototype.doLatter = function (){
+    setTimeout(function(){
+      console.log(this.name);       
+    }, 1000);
+  }
+  var obj = new NewObj('Shelly');
+  obj.doLatter();   // resultado undefined 
+
+  this foi definido como objeto no construtor, mas a função setTimeout está em uma instância 
+  posteior. Solucionamos isso com arrow function, onde this recebe sempre o valor que normalmente 
+  receberia dentro do contexto em que se encontra, nesse caso o objeto new.
+
+  function NewObj(name){
+    this.name = name;
+  }
+
+  NewObj.prototype.doLatter = function (){
+    setTimeout(() => {
+      console.log(this.name);       
+    }, 1000);
+  }
+  var obj = new NewObj('Shelly');
+  obj.doLatter();   // resultado Shelly 
+
+  Promessas de um passaro azul - bluebird
+
+  As promisses são parte importante do ES6 e podemos usa-las em aplicações Node. Um dos módulos 
+  mais populares que implementam promises, de terceiros, é o Bluebird. Com as promisses evitamos 
+  os callback, por exemplo, das funcoes do modulo File System (use as assincronas que suportam 
+  promises).
+
+  Ex. aplicação com callbacks nativos, onde primeiro abre um arquivo, le seu conteudo, faz uma 
+  modificação e depois grava o resultado em outro arquivo.
+
+  var fs = require('fs');
+  fs.readFile('./apples.txt','utf8', function(err, data){
+    if (err){
+      console.log(err);
+    } else {
+      var dados = data.replace(/apple/g, 'orange');
+      fs.writeFile('./orange.txt', dados, function(err){
+        if (err) console.log(err);
+      });
+    }
+  });
+
+Ex. No exemplo abaixo reescrevemos o programa anterior usando a função promisifyAll do Bluebird
+que é usada para promissificar todas funções do modulo FS. Usamos readFileAsync que é a versão
+da função que suporta promises.
+
+  var promise = require('bluebird');
+  var fs = promise.promisifyAll(require('fs'));
+
+  fs.readFileAsync('./apples.txt','utf8',)
+  .then (function (data) {
+      var dados = data.replace(/apple/g, 'orange');
+      fs.writeFileAsync('./orange.txt', dados)
+  }
+  .catch (function (error){
+        console.log(error);
+  });
+
+Exempo de uso de promise: arquivo promise_1.js 
+
+var promise = require("bluebird");
+var fs = promise.promisifyAll(require("fs"));
+var dados = "";
+
+fs.readFileAsync("./apple.txt", "utf8")
+  .then(function(data) {
+    dados = data.replace(/apple/g, "orange");
+    return fs.mkdirSync("./frutas/");
+  })
+  .then(function() {
+    return fs.writeFileAsync("./frutas/frutas.txt", dados);
+  })
+  .catch(function(error) {
+    console.log(error);
+  });
+
+Exemplo de uso promise e map. No exemplo abaixo o conteudo de uma pasta é devolvido como array e cada arquivo será lido 
+e seu conteudo será modificado e gravado em um arquivo de mesmo nome em outra pasta.
+
+var promise = require('bluebird');
+var fs = promise.promisifyAll(require('fs'));
+
+fs.readdirAsync('./apples/').map(filename => {
+  fs.readFileAsync('./apples/' + filename, 'utf8')
+  .then(function(data){
+    var adjdata = data.replace(/apple/g, 'orange');
+    return fs.writeFileAsync('./oranges/' + filename, adjdata);
+  })
+  .catch(function(error){
+    console,=.error(error);
+  })
+})
+.catch(function(erro){
+  console.error(erro);
+})
+
+----------------------------------------------------------------------------------------------------------------------
+Capitulo 10 - Desenvolvimento fullstack com NodeDatabase
+
+>> Arquitetura da Aplicação 
+
+Segundo a autora recomenda-se que a aplicação tenha um ponto de entrada, e nesse local importemos
+os módulos necessários para a aplicação. Exemplo de módulos usados em uma aplicação web:
+- express > framework aplicaçoes 
+- path > trabalhar com paths de arquivo 
+- serve-favicon > middleware para servir o arquivo favicon a partir de um dado path.
+- morgon > logger de requisições http 
+- cookie-parser > faz parse do cabeçalho dos cookies e preenche req.cookies 
+- body-parser > oferece 4 tipos diferentes de parses para o corpo das requisiçoes 
+
+ex. app.js 
+
+var express = require('expres');
+var path = require('path');
+var favicon = require('serve-favicon');
+var logger = require('morgan');
+var cookieParser = require('cookie-parser');
+var bodyParser = require('body-parser');
+var routes = require('./routes/index');
+var users = require('./routes/users');
+
+var app = express();
+
+O proximo passo é montar o middleware (intermediario entre a aplicação e o SO/BD) usando a 
+função app.use(). A ordem em que o middleware é montado é importante, portanto se você adicionar 
+novas funcionalidades de middleware, certifique-se de considerar os outros middlewares.
+(continuando código)
+// configurando o engine de view
+
+app.set('views', path.join(__dirname, 'views));
+app.set('view engine', 'jade');
+// lembre-se de colocar seu favicon em /public 
+app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
+app.use(logger('dev'));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({entended: false}));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// nas linhas acima configuramos o express antes de usá-lo, continuando ....
+
+app.use('/', routes);
+app.use('/users', users);
+
+// acima definimos endpoints especificos da aplicação e correspondem as funcionalidades para 
+// responder as requisiçoes do cliente. A requisição de nível mais alto ('/') é satisfeita 
+// pelo arquivo index.js no subdiretório routes, e users, pelo arquivo users.js.
+
+No arquivo index.js temos o funcionamento do roteador (router) do Express, que oferece a 
+funcionalidade de tratamento de respostas. Ex. index.js 
+
+  var express = require ('express');
+  var router = express.Router();
+
+  router.get('/', function(re, res, next){
+    res.render('index', {title: 'Express'});
+  })
+
+  module.exports = router;
+----------------------------
+Exemplo do uso de socket, http e fs. Simulação de uma fila de mensagem. Para esse exemplo foram 
+criados 3 arquivos (pasta filamensagem):
+>> client.js 
+  var net = require("net");
+  var client = new net.Socket();
+  var log = console.log.bind(console);
+
+  client.setEncoding("utf8");
+  client.connect(
+    "8124",
+    "localhost",
+    () => log("cliente conectado ...")
+  );
+
+  // chegada de dados do servidor
+  client.on("data", data => {
+    log("resposta do server para o client >> " + data);
+    //client.write(data);
+  });
+
+  // monitora o fechamento de conexao do servidor
+  client.on("close", () => {
+    log("client = server closed connection");
+    client.end();
+  });
+
+// monitora a entrada de dados no terminal
+process.stdin.on("data", data => client.write(data));
+-----
+O programa acima monitora a entrada via terminal e encaminha tudo o que é digitado para a 
+porta 8124, onde um outro programa chamado aplicacao.js vai receber esses dados e persisti-los 
+em algum local.
+>> aplicacao.js 
+
+  var net = require("net");
+  var fs = require("fs");
+  var log = console.log.bind(console);
+
+  var server = net
+    .createServer(con => {
+      log("conected aplicacao");
+      con.on("data", data => {
+        log(data + " from " + con.remoteAddress + " " + con.remotePort);
+        fs.appendFile("./fila.txt", data, function(err) {
+          if (err) console.log(err);
+        });
+      });
+    })
+    .listen(8124);
+
+  server.on("close", err => {
+    client.quit();
+  });
+  log("server listening... port 8124");
+-----
+O programa aplicacao.js cria um servidor conectado a porta 8124 para receber as mensagens que 
+chegam da aplicação cliente, assim que a mensagem é recebida o programa grava a mensagem no 
+arquivo.
+
+E por fim criaremos um servidor web que ouve requisições na porta 8111, e a cada requisição 
+esse aplicação acessa a base de dados de mensagens e extrai o seu conteúdo devolvendo-o no 
+objeto de resposta.
+>> aplweb.js 
+  var http = require("http");
+  var fs = require("fs");
+  var log = console.log.bind(console);
+  const file = "./fila.txt";
+  var server = http.createServer();
+
+  server
+    .on("request", function(req, res) {
+      if (req.url === "/favicon.ico") {
+        res.writeHead(200, { "Content-Type": "image/x-icon" });
+        res.end();
+        return;
+      }
+
+      fs.stat(file, function(err, stats) {
+        if (err) {
+          log("Não há mensagens para você - arquivo de fila não existe !!");
+          res.write("Não há mensagens na fila ....");
+          res.end();
+          return;
+        }
+
+        if (stats.isFile()) {
+          fs.readFile(file, "utf8", function(err, data) {
+            if (err) {
+              log("Não consigo ler o arquivo de fila de mensagens !!");
+              res.write(
+                "Erro na leitura do servidor de banco de dados (kkk) !!!!"
+              );
+              res.end();
+              return;
+            }
+            res.write("Mensagens: " + "\n");
+            res.write(data);
+            res.write(
+              "-------------------------- fim -----------------------------------"
+            );
+            res.end();
+          });
+        }
+      });
+    })
+    .listen(8111);
+--------
+Note que o programa acima fica monitorando as requisições que chegam, quando chega uma requisição 
+ele verifica se é a primeria requisição soliciando o arquivo favicon, se sim, ele retorna um 
+cabecalho, se não, o programa le o arquivo de mensagens e escreve na resposta seu conteúdo.
+Para testar o programa acima basta acessar http://localhost:8111 e rodar os três programas 
+acima.
+
+----------------------------
+falta capt 8 e 4 
+
+----------------------------
+
+------------------------------------------------------------------------------------------------
+Anexos
+
+1 - Callback e Promise
+
+>> Programação assincrona não usa o retorna da função para informar que a função foi finalizada.
+>> Trabalha com estilo de passagem de continuação (continuation passing style) - cps.
+>> A função recebe como argumento uma continuação explicita - o retorno da 1 primeira função vai como 
+argumento para a 2 função.
+>> São conhecidas como funcao de ordem superior ou callback.
+>> A ordem que o código é escrito é diferenmte da ordem de execução.
+
+Ex. arquivo testecallback2.js 
+
+function retornarUser(callback) {
+  setTimeout(function() {
+    console.log("user");
+    var usuario = { id: 123, nome: "Talisca" };
+    callback(null, usuario);
+  }, 3000);
+}
+
+function retornarTel(usuario, callback) {
+  console.log("function tel");
+  setTimeout(() => {
+    usuario.tel.push({ tel: "9999-8555" });
+    callback(null, usuario);
+  }, 2000);
+}
+
+function retornarVeic(usuario, callback) {
+  setTimeout(function() {
+    console.log("veiculo sempre depois de tel");
+    usuario.veiculo = { userId: usuario.id, descricao: "Fuscão Turbo" };
+    callback(null, usuario);
+  }, 2000);
+}
+
+retornarUser((erro, user) => {
+  if (erro) {
+    console.log("erro na chamada da api user");
+  } else {
+    user.tel = [];
+    retornarTel(user, function(erro, user) {
+      if (erro) {
+        console.log("erro na chamada da api tel");
+      } else {
+        retornarVeic(user, function(erro, user) {
+          if (erro) {
+            console.log("erro na chamada da api veiculo");
+          } else {
+            console.log("resultados");
+            console.log(user);
+          }
+        });
+      }
+    });
+  }
+});
+
+>>> Problemas dessa implementação é a complexidade que vai se desenhando para tratar 
+ os callbacks (callback hell).
+>>> Para superar esse problema veio a promise, que permite como exibido abaixo encadear a 
+execução das promises atraves do then.
+A promise permite o código como se fosse sincrono, além de ter o controle do estado da promise:
+  pending - inicio 
+  fullfilled - sucesso
+  rejected - falhou
+Importante > quando a promise entra no estado fullfilled o metodo then é executado.
+
+Ex.
+function retornarUser() {
+  return new Promise((resolve, reject) => {
+    setTimeout(function() {
+      console.log("user");
+      var usuario = { id: 123, nome: "Talisca" };
+      return resolve(usuario);
+    }, 3000);
+  });
+}
+
+function retornarTel(usuario) {
+  console.log("function tel");
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+        usuario.tel.push({ tel: "9999-8555" });
+        return resolve(usuario);
+        });
+      }
+      resolve(usuario);
+    }, 2000);
+  });
+}
+
+function retornarVeic(usuario) {
+  return new Promise((resolve, reject) => {
+    setTimeout(function() {
+      console.log("veiculo sempre depois de tel");
+      usuario.veiculo = { userId: usuario.id, descricao: "Fuscão Turbo" };
+      return resolve(usuario);
+    }, 2000);
+  });
+}
+
+retornarUser()
+  .then(function(dado) {
+    dado.tel = [];
+    return retornarTel(dado);
+  })
+  .then(retornarVeic)
+  .then(function(res) {
+    console.log("resultados");
+    console.log(res);
+  });
+
+-----------------------
+2 - Rechamada dentro da uma cadeia de promise 
+
+Ex. arquivo testerechamada.js 
+function retornarVeic(usuario) {
+  return new Promise((resolve, reject) => {
+    setTimeout(function() {
+      console.log("veiculo sempre depois de tel");
+      usuario.veiculo = { userId: usuario.id, descricao: "Fuscão Turbo" };
+      return resolve(usuario);
+    }, 2000);
+  });
+}
+
+function retornarUser() {
+  return new Promise((resolve, reject) => {
+    setTimeout(function() {
+      console.log("user");
+      var usuario = { id: 123, nome: "Talisca" };
+      return resolve(usuario);
+    }, 3000);
+  });
+}
+
+function retornarTel(usuario, ind) {
+  console.log("function tel");
+  console.log(usuario);
+  console.log(ind);
+  return new Promise((resolve, reject) => {
+    setTimeout(() => {
+      console.log("tel > dentro timeout");
+      if (ind < 3) {
+        usuario.tel.push({ tel: "9999-8555" });
+        ind += 1;
+        return retornarTel(usuario, ind).then(function(usuario) {
+          resolve(usuario);
+        });
+      }
+      resolve(usuario);
+    }, 2000);
+  });
+}
+
+retornarUser()
+  .then(function(dado) {
+    dado.tel = [];
+    return retornarTel(dado, 0);
+  })
+  .then(retornarVeic)
+  .then(function(res) {
+    console.log("resultados");
+    console.log(res);
+  });
+console.log("execucao sequencial fim");
+
+-------------------
+
+
+**********************************************************************************************
+
+
+
+
+
+
+
+
+
+
